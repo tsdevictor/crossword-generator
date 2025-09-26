@@ -1,0 +1,119 @@
+import sys; args = sys.argv[1:]
+args = ['6x6', '22', 'someDct.txt']
+# args = ['8x8', '50']
+# args = ['9x9', '12', 'V0x1Shy']
+# args = ['9x9', '14', 'V0x4con', 'V6x4rum']
+
+
+global H, W, NUM_BLOCKING, words_by_len
+def parse_args():
+    global H, W, NUM_BLOCKING, words_by_len
+
+    H, W, NUM_BLOCKING = int(args[0][:args[0].lower().index('x')]), int(args[0][args[0].lower().index('x') + 1:]), int(args[1])
+
+    brd = '-' * H * W
+    for arg in args[2:]:
+        if '.txt' in arg: continue
+
+        lower = arg.lower()
+        orientation, word = lower[0], '#'
+
+        end = lower.index('x') + 1
+        for char in lower[lower.index('x') + 1:]:
+            if char in 'abcdefghijklmnopqrstuvwxyz#': break
+            end += 1
+
+        row = int(lower[1:lower.index('x')])
+        col = int(lower[lower.index('x')+1: end])
+        if lower[end:]: word = arg[end:]
+
+        brd = [*brd]
+        pos = row * W + col
+        for char in word:
+            brd[pos] = char
+            if char == '#': brd[reflect(pos)] = '#'
+            elif brd[reflect(pos)].lower() not in 'abcdefghijklmnopqrstuvwxyz#': brd[reflect(pos)] = '.'
+            pos += 1 if orientation in 'Hh' else W
+
+        if NUM_BLOCKING % 2: brd[H*W//2] = '#'
+
+    return ''.join(brd)
+
+
+global THREE_AWAY_NBRS
+def generate_nbrs():
+    global THREE_AWAY_NBRS
+    NBRS_BY_DIRECTION = [[] for _ in range(H*W)]
+    row_diffs = {-W: 1, W: 1, -1: 0, 1: 0}
+    col_diffs = {-W: 0, W: 0, -1: 1, 1: 1}
+    for pos in range(H*W):
+        for drt in [W, -W, 1, -1]:
+            nbrs, rd, cd = [], row_diffs[drt], col_diffs[drt]
+            count = 0
+            for dist in range(1, W):  # distance
+                if count == 3: break
+                nbr = pos + dist * drt
+                if not 0 <= nbr < W*H \
+                    or abs(nbr % W - pos % W) != dist * cd \
+                    or abs(nbr // W - pos // W) != dist * rd: break
+                nbrs.append(nbr)
+                count += 1
+            if nbrs: NBRS_BY_DIRECTION[pos].append(nbrs)
+
+
+def reflect(pos): return H*W-1-pos
+
+
+def two_d_print(brd):
+    print('\n'.join([''.join([brd[r * W + c] for c in range(W)]) for r in range(H)]))
+
+
+# check that: all white spaces are connected, no words of length < 3
+def is_valid(brd):
+    brd = ''.join([char if char in '#-' else '-' for char in brd])
+
+    # no words of length < 3
+    for i, char in enumerate(brd):
+        if char != '#': continue
+        for drt in THREE_AWAY_NBRS[i]:
+            if '-#' in ''.join(brd[nbr] for nbr in drt): return False
+
+    return True
+
+
+def place(brd, pos, item):
+    brd = [*brd]
+    brd[pos] = item
+    brd[reflect(pos)] = item if item == '#' else '.'
+    return ''.join(brd)
+
+
+def brute_force(brd, pos):
+    count = brd.count('#')
+    if count > NUM_BLOCKING: return ''
+    if count == NUM_BLOCKING:
+        return brd.replace('.', '-') if is_valid(brd) else ''
+    # else: print(brd, brd.count('#'), NUM_BLOCKING)
+
+    for i in range(pos, len(brd), 3):
+        if brd[i] != '-' or brd[reflect(i)] != '-': continue
+        new_brd = brute_force(place(brd, i, '#'), i + 1)
+        if new_brd: return new_brd
+        brd = place(brd, i, '.')
+
+    return ''
+
+
+def main():
+    brd = parse_args()
+    generate_nbrs()
+    # print(NBRS_BY_DIRECTION)
+    brd = brute_force(brd, 0)
+    # two_d_print(brd)
+    print(brd)
+
+
+if __name__ == '__main__': main()
+
+
+# Tristan Devictor, pd. 6, 2024
